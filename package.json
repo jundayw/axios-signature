@@ -1,0 +1,44 @@
+{
+    "name": "npm",
+    "version": "1.0.1",
+    "description": "d",
+    "keywords": [
+        "x"
+    ],
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "prepublishOnly": "npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/feross/buffer.git"
+    },
+    "dependencies": {
+        "axios": "^1.15.0",
+        "crypto-js": "^4.2.0",
+        "ts-pattern": "^5.9.0"
+    },
+    "devDependencies": {
+        "@types/crypto-js": "^4.2.2",
+        "typescript": "^6.0.2"
+    },
+    "author": {
+        "name": "Mr.Moore",
+        "email": "jundayw@gmail.com",
+        "url": "https://github.com/jundayw"
+    },
+    "funding": "https://github.com/sponsors/gjtorikian/",
+    "bugs": {
+        "url": "https://github.com/niklasvh/css-line-break/issues"
+    },
+    "homepage": "https://github.com/niklasvh/css-line-break#readme"
+}
