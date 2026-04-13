@@ -1,10 +1,7 @@
 import { AxiosRequestConfig, Method } from "axios";
 import { match } from "ts-pattern";
-import HmacSHA1 from 'crypto-js/hmac-sha1';
-import HmacSHA256 from 'crypto-js/hmac-sha256';
-import HmacSHA512 from 'crypto-js/hmac-sha512';
-import HmacMD5 from 'crypto-js/hmac-md5';
-import MD5 from 'crypto-js/md5';
+import { HmacSHA1, HmacSHA256, HmacSHA512, HmacMD5, MD5 } from 'crypto-js';
+import { URL, URLSearchParams } from './url'
 
 class Signature {
     private readonly appId: string;
@@ -16,14 +13,12 @@ class Signature {
     }
 
     protected build(
-        basePath: string,
-        urlPath: string,
+        url: string,
         method: Method = 'POST',
         type: 'sha1' | 'sha256' | 'sha512' | 'md5' = 'sha256',
         version: '1.0.0' | string = '1.0.0'
     ): Record<string, string>{
-        const trimSlashes = (str: string) => str.replace(/^\/+|\/+$/g, '')
-        const path: string = trimSlashes(`${trimSlashes(basePath)}/${trimSlashes(urlPath)}`)
+        const path: string = url.replace(/^\/+|\/+$/g, '')
         const action: string = MD5(path).toString();
         return {
             app_id: this.appId,
@@ -56,14 +51,13 @@ class Signature {
         const params: Record<string, any> = this.sort(config.params || {});
         const data: Record<string, any> = this.sort(config.data || {});
         const message: string = `${JSON.stringify(params)}${JSON.stringify(data)}`;
-        console.log({ message })
+        // console.log({ message })
         return message;
     }
 
     protected assign(config: AxiosRequestConfig): AxiosRequestConfig{
-        config.params.signature = this.crypto(config.params?.type ?? '', this.message(config));
-        config.params = new URLSearchParams(config.params).toString();
-        console.log({ config })
+        config.params.signature = this.crypto(config.params.type, this.message(config));
+        // console.log({ config })
         return config;
     }
 
@@ -71,7 +65,7 @@ class Signature {
         // 兼容网关地址传递 Query 参数：http://localhost?app_id=x
         const base: URL = new URL(config.baseURL || 'http://localhost');
         // 兼容接口地址传递 Query 参数：/account/login?type=password
-        const url: URL = new URL(config.url as string, base.toString());
+        const url: URL = new URL(config.url as string, base.href);
         // 兼容接口传递 params 参数：{ params: { action: 'ping', type: 'sha512', version: '2.0.0' } }
         const requestParams: URLSearchParams = new URLSearchParams(config.params || {});
         // 获取网关 params 参数
@@ -82,15 +76,15 @@ class Signature {
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
         const commonParams: Record<string, any> = this.build(
-            base.pathname,
             url.pathname,
             config.method as Method,
-            config.params?.type ?? '',
+            config.params?.type ?? 'md5',
             config.params?.version ?? '1.0.0'
         );
         // 参数合并
         const params: Record<string, any> = Object.assign({}, commonParams, baseParams, defaultParams, urlParams);
 
+        config.baseURL = url.origin;
         config.url = url.pathname;
         config.params = params;
 
