@@ -50,7 +50,7 @@ class Signature {
     protected message(config: AxiosRequestConfig): string{
         const params: Record<string, any> = this.sort(config.params || {});
         const data: Record<string, any> = this.sort(config.data || {});
-        const message: string = `${JSON.stringify(params)}${JSON.stringify(data)}`;
+        const message: string = [params, data].filter((value) => Object.entries(value).length).map((value) => JSON.stringify(value)).join('');
         // console.log({ message })
         return message;
     }
@@ -75,18 +75,18 @@ class Signature {
         // 获取接口 params 参数
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
-        const commonParams: Record<string, any> = this.build(
+        // 参数合并
+        const params: Record<string, any> = Object.assign({}, this.build(
             url.pathname,
             config.method as Method,
             config.params?.type ?? 'md5',
             config.params?.version ?? '1.0.0'
-        );
-        // 参数合并
-        const params: Record<string, any> = Object.assign({}, commonParams, baseParams, defaultParams, urlParams);
+        ), baseParams, defaultParams, urlParams);
+        console.log({ params })
 
         config.baseURL = url.origin;
         config.url = url.pathname;
-        config.params = params;
+        config.params = new URLSearchParams(params);
 
         return this.assign(config);
     }

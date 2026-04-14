@@ -24,9 +24,11 @@ class URL {
 
         if (base) {
             const url = new URL(base);
-            const pathname = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
-            href = href.startsWith('/') ? href.slice(1) : href;
-            href = pathname ? `${url.origin}/${pathname}/${href}` : `${url.origin}/${href}`;
+            href = [
+                url.origin,
+                url.pathname.replace(/^\/+|\/+$/g, ''),
+                href.replace(/^\/+|\/+$/g, '')
+            ].filter((value) => value.length).join('/')
         }
 
         this.parse(href);
@@ -34,36 +36,38 @@ class URL {
 
     parse(href: string): void{
         try {
+            console.log({
+                href
+            })
             const pattern: RegExp = /^(?:(?<protocol>[a-zA-Z][a-zA-Z0-9+.-]*):\/\/)?(?<host>(?<hostname>[^\/:\?#]+)(?::(?<port>\d+))?)(?<pathname>\/[^?\#]*)?(?:\?(?<search>[^#]*))?(?:#(?<hash>.*))?$/;
             const match: RegExpMatchArray | null = href.match(pattern);
 
-            Object.assign(this as URL, match?.groups ?? {})
-            this.origin = this.protocol && this.host ? `${this.protocol}://${this.host}` : '';
-            // const {
-            //     protocol = '',
-            //     host = '',
-            //     hostname = '',
-            //     port = '',
-            //     pathname = '',
-            //     search = '',
-            //     hash = ''
-            // } = match?.groups ?? {};
-            //
-            // const origin = protocol && host ? `${protocol}://${host}` : '';
-            //
-            // this.href = href;
-            // this.protocol = protocol;
-            // this.origin = origin;
-            // this.host = host;
-            // this.hostname = hostname;
-            // this.port = port;
-            // this.pathname = pathname;
-            // this.search = search ? '?' + search : '';
-            // this.hash = hash ? '#' + hash : '';
+            const {
+                protocol = '',
+                host = '',
+                hostname = '',
+                port = '',
+                pathname = '',
+                search = '',
+                hash = ''
+            } = match?.groups ?? {};
+
+            const origin = protocol && host ? `${protocol}://${host}` : '';
+
+            this.href = href;
+            this.protocol = protocol;
+            this.origin = origin;
+            this.host = host;
+            this.hostname = hostname;
+            this.port = port;
+            this.pathname = pathname;
+            this.search = search ? '?' + search : '';
+            this.hash = hash ? '#' + hash : '';
             // 解析 searchParams
             if (this.search) {
                 this.searchParams = new URLSearchParams(this.search);
             }
+            // console.log(this)
         } catch (e) {
 
         }
@@ -81,15 +85,25 @@ class URL {
 }
 
 class URLSearchParams {
-    private readonly params: Record<string, any>;
-
-    constructor(init?: string){
-        this.params = {};
-        if (init && typeof init === 'string') {
+    constructor(init?: string[][] | Record<string, string> | string | URLSearchParams){
+        if (!init) {
+            return;
+        }
+        if (init instanceof URLSearchParams) {
+            for (const [k, v] of init) {
+                this.append(k, String(v));
+            }
+        }
+        if (typeof init === 'string') {
             this.fromString(init);
         }
-        if (init && typeof init === 'object') {
-            this.fromObject(init);
+        if (Array.isArray(init)) {
+            for (const [k, v] of init) {
+                this.append(k, String(v));
+            }
+        }
+        if (typeof init === 'object') {
+            Object.entries(init).forEach(([k, v]: [string, any]) => this.append(k, String(v)));
         }
     }
 
@@ -100,45 +114,49 @@ class URLSearchParams {
         str.split('&').forEach(p => {
             const [k, v] = p.split('=');
             if (k) {
-                this.append(decodeURIComponent(k), decodeURIComponent(v || ''));
+                this.append(this.encode(k), this.encode(v || ''));
             }
         });
     }
 
-    fromObject(obj: Record<string, any>): void{
-        Object.entries(obj).forEach(([k, v]: [string, any]) => this.append(k, v));
-    }
-
     append(key: string, value: any): void{
-        this.params[key] = value;
+        (this as any)[key] = value;
     }
 
     get(key: string){
-        return this.params[key] ?? null;
+        return (this as any)[key] ?? null;
     }
 
     set(key: string, value: any): void{
-        this.params[key] = value;
+        (this as any)[key] = value;
     }
 
     delete(key: string): void{
-        delete this.params[key];
+        delete (this as any)[key];
     }
 
     entries(){
-        return Object.entries(this.params);
+        return Object.entries(this);
     }
 
     * [Symbol.iterator](){
-        for (const [key, value] of Object.entries(this.params)) {
+        for (const [key, value] of Object.entries(this)) {
             yield [key, value];
         }
     }
 
     toString(): string{
-        return Object.entries(this.params)
-            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        return Object.entries(this)
+            .map(([k, v]) => `${this.encode(k)}=${this.encode(v)}`)
             .join('&');
+    }
+
+    private encode(str: string){
+        return encodeURIComponent(str).replace(/%20/g, '+');
+    }
+
+    private decode(str: string){
+        return decodeURIComponent(str.replace(/\+/g, ' '));
     }
 }
 
