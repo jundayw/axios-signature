@@ -11,7 +11,7 @@ class URL {
     public searchParams: URLSearchParams;
 
     constructor(href: string, base?: string){
-        this.href = href;
+        this.href = '';
         this.protocol = '';
         this.origin = '';
         this.host = '';
@@ -23,21 +23,17 @@ class URL {
         this.searchParams = new URLSearchParams();
 
         if (base) {
-            const url = new URL(base);
-            href = [
-                url.origin,
-                url.pathname.replace(/^\/+|\/+$/g, ''),
-                href.replace(/^\/+|\/+$/g, '')
-            ].filter((value) => value.length).join('/')
+            this.parse(base, base.includes('://'));
+            href = this.origin + (href.startsWith('/') ? href : `/${href}`);
         }
-
-        this.parse(href);
+        this.parse(href, href.includes('://'));
     }
 
-    parse(href: string): void{
+    parse(href: string, hasDomain: boolean): void{
         try {
-            const pattern: RegExp = /^(?:(?<protocol>[a-zA-Z][a-zA-Z0-9+.-]*):\/\/)?(?<host>(?<hostname>[^\/:\?#]+)(?::(?<port>\d+))?)(?<pathname>\/[^?\#]*)?(?:\?(?<search>[^#]*))?(?:#(?<hash>.*))?$/;
-            const match: RegExpMatchArray | null = href.match(pattern);
+            const pattern1: RegExp = /^(?:(?<protocol>[a-zA-Z][a-zA-Z0-9+.-]*):\/\/)?(?<host>(?<hostname>[^\/:\?#]+)(?::(?<port>\d+))?)(?<pathname>\/[^?\#]*)?(?:\?(?<search>[^#]*))?(?:#(?<hash>.*))?$/;
+            const pattern2: RegExp = /^(?<pathname>\/[^?\#]*)?(?:\?(?<search>[^#]*))?(?:#(?<hash>.*))?$/;
+            const match: RegExpMatchArray | null = href.match(hasDomain ? pattern1 : pattern2);
 
             const {
                 protocol = '',

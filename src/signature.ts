@@ -63,9 +63,9 @@ class Signature {
 
     public signature(config: AxiosRequestConfig): AxiosRequestConfig{
         // 兼容网关地址传递 Query 参数：http://localhost?app_id=x
-        const base: URL = new URL(config.baseURL || 'http://localhost');
+        const base: URL = new URL(config.baseURL as string);
         // 兼容接口地址传递 Query 参数：/account/login?type=password
-        const url: URL = new URL(config.url as string, base.href);
+        const url: URL = new URL(config.url as string);
         // 兼容接口传递 params 参数：{ params: { action: 'ping', type: 'sha512', version: '2.0.0' } }
         const requestParams: URLSearchParams = new URLSearchParams(config.params || {});
         // 获取网关 params 参数
@@ -75,16 +75,16 @@ class Signature {
         // 获取接口 params 参数
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
+        let pathname: string = [base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
         // 参数合并
         const params: Record<string, any> = Object.assign({}, this.build(
-            url.pathname,
+            config.url = `/${pathname}`,
             config.method as Method,
             config.params?.type ?? 'md5',
             config.params?.version ?? '1.0.0'
         ), baseParams, defaultParams, urlParams);
 
-        config.baseURL = url.origin;
-        config.url = url.pathname;
+        config.baseURL = base.origin;
         config.params = new URLSearchParams(params);
 
         return this.assign(config);
