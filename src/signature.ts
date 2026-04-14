@@ -82,7 +82,6 @@ class Signature {
             config.params?.type ?? 'md5',
             config.params?.version ?? '1.0.0'
         ), baseParams, defaultParams, urlParams);
-        console.log({ params })
 
         config.baseURL = url.origin;
         config.url = url.pathname;

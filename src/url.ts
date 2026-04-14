@@ -36,9 +36,6 @@ class URL {
 
     parse(href: string): void{
         try {
-            console.log({
-                href
-            })
             const pattern: RegExp = /^(?:(?<protocol>[a-zA-Z][a-zA-Z0-9+.-]*):\/\/)?(?<host>(?<hostname>[^\/:\?#]+)(?::(?<port>\d+))?)(?<pathname>\/[^?\#]*)?(?:\?(?<search>[^#]*))?(?:#(?<hash>.*))?$/;
             const match: RegExpMatchArray | null = href.match(pattern);
 
