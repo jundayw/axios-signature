@@ -37,18 +37,63 @@ npm install @jundayw/axios-signature
 
 ## Usage
 
+## Request Signing Interceptor
+
 ```javascript
 import Signature from '@jundayw/axios-signature';
 
-instance.interceptors.request.use(
-    new Signature(
-        import.meta.env.VITE_APP_ID,
-        import.meta.env.VITE_APP_KEY
-    ).signature(config),
+axios.interceptors.request.use(
+    (config) => {
+        return new Signature(
+            import.meta.env.VITE_APP_ID,
+            import.meta.env.VITE_APP_KEY
+        ).signature(config);
+    },
     (error) => {
         return Promise.reject(error);
     }
 );
+```
+
+## Request
+
+```javascript
+axios({
+    url: '/utils/ping/ping',
+    method: 'post',
+    data: {
+        'type': 'password',
+        'username': 'admin',
+        'password': '12**56',
+        'remember': false,
+    },
+    // Optional, overrides global configuration
+    // params: {
+    //     app_id: '202603161735',
+    //     timestamp: new Date().toISOString(),
+    //     type: 'md5',
+    //     action: 'utils.ping.ping',
+    //     charset: 'UTF-8',
+    //     format: 'JSON',
+    //     method: 'POST',
+    //     version: '1.0.0',
+    // }
+});
+```
+
+## Request automatic signing
+
+```http request
+POST /utils/ping/ping?app_id=202603161735&timestamp=2026-04-14T03:07:18.877Z&type=md5&action=febd3064e3499f401516eaaacf9575b3&charset=UTF-8&format=JSON&method=post&version=1.0.0&signature=66a9f858978a89ae192f9ee496df9c71 HTTP/1.1
+Accept: application/json
+Accept-Encoding: gzip, deflate, br
+User-Agent: PostmanRuntime-ApipostRuntime/1.1.0
+Connection: keep-alive
+Content-Type: application/json
+Host: 127.0.0.1:8989
+Content-Length: 75
+
+{"type":"password","username":"admin","password":"12**56","remember":false}
 ```
 
 <!-- CONTRIBUTING -->
