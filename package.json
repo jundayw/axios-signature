@@ -1,6 +1,6 @@
 {
     "name": "@jundayw/axios-signature",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A lightweight Axios interceptor that automatically adds signature authentication (HMAC-SHA1/SHA256/SHA512, MD5, etc.) to outgoing requests. Protect your API with data integrity and anti‑tampering mechanisms.",
     "keywords": [
         "Axios",
