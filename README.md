@@ -43,12 +43,10 @@ npm install @jundayw/axios-signature
 import Signature from '@jundayw/axios-signature';
 
 axios.interceptors.request.use(
-    (config) => {
-        return new Signature(
-            import.meta.env.VITE_APP_ID,
-            import.meta.env.VITE_APP_KEY
-        ).signature(config);
-    },
+    new Signature(
+        import.meta.env.VITE_APP_ID,
+        import.meta.env.VITE_APP_KEY
+    ),
     (error) => {
         return Promise.reject(error);
     }

@@ -6,10 +6,14 @@ import { URL, URLSearchParams } from './url'
 class Signature {
     private readonly appId: string;
     private readonly appKey: string;
+    private readonly signature: string;
 
-    constructor(appId: string, appKey: string){
+    constructor(appId: string, appKey: string, signature: string = 'signature'){
         this.appId = appId || ''
         this.appKey = appKey || ''
+        this.signature = signature || 'signature'
+
+        return (config: AxiosRequestConfig): AxiosRequestConfig => this.signature(config);
     }
 
     protected build(
@@ -56,12 +60,12 @@ class Signature {
     }
 
     protected assign(config: AxiosRequestConfig): AxiosRequestConfig{
-        config.params.signature = this.crypto(config.params.type, this.message(config));
+        config.params[this.signature] = this.crypto(config.params.type, this.message(config));
         // console.log({ config })
         return config;
     }
 
-    public signature(config: AxiosRequestConfig): AxiosRequestConfig{
+    protected signature(config: AxiosRequestConfig): AxiosRequestConfig{
         // 兼容网关地址传递 Query 参数：http://localhost?app_id=x
         const base: URL = new URL(config.baseURL as string);
         // 兼容接口地址传递 Query 参数：/account/login?type=password
