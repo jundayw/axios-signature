@@ -75,7 +75,7 @@ class Signature {
         // 获取接口 params 参数
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
-        let pathname: string = [base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
+        let pathname: string = [base.pathname, url.pathname].map((value) => value.replace(/^\/+|\/+$/g, '')).filter((value) => value.length).join('/');
         // 参数合并
         const params: Record<string, any> = Object.assign({}, this.build(
             config.url = `/${pathname}`,
