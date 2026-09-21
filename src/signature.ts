@@ -54,7 +54,7 @@ class Signature {
     }
 
     public toHeaderKeyUpperCase(value: string): string {
-        return (this.headerKey ? `${this.headerKey}-${value}` : value)
+        return (this.headerKey ? `${this.headerKey}_${value}` : value)
             .split('_')
             .filter(Boolean)
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -87,6 +87,7 @@ class Signature {
     }
 
     public crypto(type: string, message: string): string {
+        console.log({message})
         return match<any, string>(type?.toLowerCase())
             .with('sha1', () => HmacSHA1(message, this.appSecretKey).toString().toUpperCase())
             .with('sha256', () => HmacSHA256(message, this.appSecretKey).toString().toUpperCase())
