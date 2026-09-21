@@ -1,75 +1,162 @@
-import { AxiosRequestConfig, Method } from "axios";
+import { type AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import { match } from "ts-pattern";
-import { HmacSHA1, HmacSHA256, HmacSHA512, HmacMD5, MD5 } from 'crypto-js';
+import { HmacSHA1, HmacSHA256, HmacSHA512, HmacMD5 } from 'crypto-js';
 import { URL, URLSearchParams } from './url'
+import VerifySignatureError from "./Errors/VerifySignatureError";
 
 class Signature {
     private readonly appId: string;
-    private readonly appKey: string;
-    private readonly signature: string;
+    private readonly appSecretKey: string;
+    private readonly signName: string;
+    private readonly headerKey: string;
 
-    constructor(appId: string, appKey: string, signature: string = 'signature'){
-        this.appId = appId || ''
-        this.appKey = appKey || ''
-        this.signature = signature || 'signature'
-
-        return (config: AxiosRequestConfig): AxiosRequestConfig => this.signature(config);
+    constructor(appId: string, appSecretKey: string, signName: string = 'signature', headerKey: string = 'x') {
+        this.appId = appId
+        this.appSecretKey = appSecretKey
+        this.signName = signName
+        this.headerKey = headerKey
     }
 
-    protected build(
-        url: string,
-        method: Method = 'POST',
-        type: 'sha1' | 'sha256' | 'sha512' | 'md5' = 'sha256',
-        version: '1.0.0' | string = '1.0.0'
-    ): Record<string, string>{
-        const path: string = url.replace(/^\/+|\/+$/g, '')
-        const action: string = MD5(path).toString();
+    public nonce(): string {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c =>
+            (c === 'x' ? Math.random() * 16 | 0 : (Math.random() * 16 | 0) & 0x3 | 0x8).toString(16)
+        );
+    }
+
+    public config(config: InternalAxiosRequestConfig): Record<string, Record<string, any>> {
         return {
-            app_id: this.appId,
-            timestamp: new Date().toISOString(),
-            type,
-            action,
-            charset: 'UTF-8',
-            format: 'JSON',
-            method,
-            version,
+            headers: {
+                app_id: (config.headers['app_id'] as string) || this.appId,
+                action: config.headers['action'] as string || config.url,
+                type: ((config.headers['type'] as 'SHA1' | 'SHA256' | 'SHA512' | 'MD5') || 'SHA512').toUpperCase(),
+                charset: (config.headers['charset'] as string || 'UTF-8').toUpperCase(),
+                format: (config.headers['format'] as string || 'JSON').toUpperCase(),
+                method: (config.headers['method'] as string || config.method as string || 'POST').toUpperCase(),
+                version: (config.headers['version'] as string) || '1.0.0',
+                timestamp: new Date().toISOString(),
+                nonce: this.nonce().toUpperCase(),
+            }
+        };
+    }
+
+    public getConfigByKey(configuration: Record<string, Record<string, any>>, key: string, defaultValue: any = null): any {
+        if (Object.prototype.hasOwnProperty.call(configuration, key)) {
+            return configuration[key];
         }
+        for (const value of Object.values(configuration)) {
+            for (const [k, v] of Object.entries(value)) {
+                if (key === k) {
+                    return v;
+                }
+            }
+        }
+        return defaultValue;
+    }
+
+    public toHeaderKeyUpperCase(value: string): string {
+        return (this.headerKey ? `${this.headerKey}-${value}` : value)
+            .split('_')
+            .filter(Boolean)
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            // .map((word: string) => word.toLowerCase())
+            .join('-');
+    }
+
+    public build(config: Record<string, any>, hasHeader: boolean = false): Record<string, any> {
+        return Object.fromEntries(Object.entries(config).map(([key, value]) => [
+            hasHeader ? this.toHeaderKeyUpperCase(key) : key,
+            key === 'headers' ? this.build(value, true) : value,
+        ] as [string, any]));
+    }
+
+    public merge(source: Record<string, Record<string, any>>, target: Record<string, Record<string, any>>): Record<string, Record<string, any>> {
+        return Object.entries(target).reduce((previousValue: Record<string, Record<string, any>>, [key, value]: [string, Record<string, any>]) => ({
+            ...previousValue,
+            [key]: {
+                ...(previousValue[key] ?? {}),
+                ...value,
+            }
+        }), source);
     }
 
     // 对象排序算法
-    protected sort<T extends Record<string, any>>(obj: T): T{
+    public sort<T extends Record<string, any>>(obj: T): T {
         return Object.fromEntries(
             Object.entries(obj).sort((a: [string, any], b: [string, any]) => a[0].localeCompare(b[0]))
         ) as T;
     }
 
-    protected crypto(type: string, message: string): string{
-        return match<any, string>(type)
-            .with('sha1', () => HmacSHA1(message, this.appKey).toString())
-            .with('sha256', () => HmacSHA256(message, this.appKey).toString())
-            .with('sha512', () => HmacSHA512(message, this.appKey).toString())
-            .otherwise(() => HmacMD5(message, this.appKey).toString());
+    public crypto(type: string, message: string): string {
+        return match<any, string>(type?.toLowerCase())
+            .with('sha1', () => HmacSHA1(message, this.appSecretKey).toString().toUpperCase())
+            .with('sha256', () => HmacSHA256(message, this.appSecretKey).toString().toUpperCase())
+            .with('sha512', () => HmacSHA512(message, this.appSecretKey).toString().toUpperCase())
+            .otherwise(() => HmacMD5(message, this.appSecretKey).toString().toUpperCase());
     }
 
-    protected message(config: AxiosRequestConfig): string{
-        const params: Record<string, any> = this.sort(config.params || {});
-        const data: Record<string, any> = this.sort(config.data || {});
-        const message: string = [params, data].filter((value) => Object.entries(value).length).map((value) => JSON.stringify(value)).join('');
-        // console.log({ message })
-        return message;
+    protected encode(value: any): string {
+        return encodeURIComponent(String(value))
+            .replace('*', '%2A')
+            .replace('!', '%21')
+            .replace("'", '%27')
+            .replace('(', '%28')
+            .replace(')', '%29');
     }
 
-    protected assign(config: AxiosRequestConfig): AxiosRequestConfig{
-        config.params[this.signature] = this.crypto(config.params.type, this.message(config));
-        // console.log({ config })
+    public value(value: any): string {
+        if (value instanceof Object && !Array.isArray(value)) {
+            value = Object.fromEntries(Object.entries(value).filter(([key, value]) => value !== undefined));
+        }
+        return Object.entries(this.sort(value))
+            .map(([key, value]) => {
+                if (value === null || value === undefined) {
+                    value = '';
+                }
+                if (typeof value === 'object') {
+                    value = this.value(value);
+                }
+                return [key, this.encode(value)].join('=');
+            }).join('&')
+    }
+
+    public message(message: Record<string, any>): string {
+        return Object.values(this.sort(message))
+            .filter((value: Record<string, any>) => value !== undefined)
+            .filter((value: Record<string, any>) => value !== null)
+            .filter((value: Record<string, any>) => Object.entries(value).length)
+            .map((value: Record<string, any>) => this.value(value))
+            .join('&');
+    }
+
+    public assign(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+        const configuration: Record<string, Record<string, any>> = this.config(config) || {};
+        const message: Record<string, Record<string, any>> = this.build(configuration);
+        const params: Record<string, any> = config.params || {};
+        const data: Record<string, any> = config.data || {};
+        const request: Record<string, any> = this.merge({ data, params }, message);
+
+        Object.entries(message).forEach(([key, value]) => {
+            const signatureName: string = key.toLowerCase() === 'headers' ? this.toHeaderKeyUpperCase(this.signName) : this.signName;
+            const signatureValue: string = this.crypto(this.getConfigByKey(configuration, 'type'), this.message(request));
+            Object.assign(value, {
+                [signatureName]: signatureValue
+            })
+        });
+
+        Object.entries(message).forEach(([key, value]) => {
+            Object.entries(value).forEach(([k, v]) => {
+                config[key as 'params' | 'data' | 'headers'][k] = v;
+            })
+        })
+
         return config;
     }
 
-    protected signature(config: AxiosRequestConfig): AxiosRequestConfig{
+    public signature(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
         // 兼容网关地址传递 Query 参数：http://localhost?app_id=x
         const base: URL = new URL(config.baseURL as string);
         // 兼容接口地址传递 Query 参数：/account/login?type=password
-        const url: URL = new URL(config.url as string);
+        const url: URL = new URL(config.url as string, base.origin as string);
         // 兼容接口传递 params 参数：{ params: { action: 'ping', type: 'sha512', version: '2.0.0' } }
         const requestParams: URLSearchParams = new URLSearchParams(config.params || {});
         // 获取网关 params 参数
@@ -81,18 +168,56 @@ class Signature {
         // 获取公共参数
         let pathname: string = [base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
         // 参数合并
-        const params: Record<string, any> = Object.assign({}, this.build(
-            config.url = `/${pathname}`,
-            config.method as Method,
-            config.params?.type ?? 'md5',
-            config.params?.version ?? '1.0.0'
-        ), baseParams, defaultParams, urlParams);
+        const params: Record<string, any> = Object.assign({}, baseParams, defaultParams, urlParams);
 
-        config.baseURL = base.origin;
+        config.baseURL = url.origin;
+        config.url = pathname;
         config.params = new URLSearchParams(params);
 
         return this.assign(config);
     }
+
+    public verify(response: AxiosResponse, type: string = 'SHA512'): boolean {
+        const {
+            [this.signName]: signature,
+            ...message
+        } = response.data;
+        return signature === this.crypto(type, this.value(message));
+    }
 }
 
-export default Signature
+export interface SignatureFactory {
+    (
+        appId: string,
+        appSecretKey: string,
+        signName?: string,
+        headerKey?: string
+    ): SignatureInterceptor;
+}
+
+export type SignatureInterceptor = (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
+export const SignatureInstance: SignatureFactory = function (appId: string, appSecretKey: string, signName: string = 'signature', headerKey: string = 'x'): SignatureInterceptor {
+    return function (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig> {
+        return new Signature(appId, appSecretKey, signName, headerKey).signature(config);
+    };
+};
+
+export interface VerifyFactory {
+    (
+        appId: string,
+        appSecretKey: string,
+        signName?: string,
+        type?: string,
+    ): VerifyInterceptor;
+}
+
+export type VerifyInterceptor = (response: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>;
+export const VerifyInstance: VerifyFactory = function (appId: string, appSecretKey: string, signName: string = 'signature', type: string = 'SHA512'): VerifyInterceptor {
+    return function (response: AxiosResponse): AxiosResponse | Promise<AxiosResponse> {
+        return new Signature(appId, appSecretKey, signName).verify(response, type) ? response : Promise.reject(
+            new VerifySignatureError('Response signature verification failed')
+        );
+    };
+};
+
+export default Signature;

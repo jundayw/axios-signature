@@ -1,3 +1,1 @@
-import Signature from './signature';
-
-export default Signature
+export { default, SignatureInstance, VerifyInstance } from './signature';

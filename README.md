@@ -40,10 +40,10 @@ npm install @jundayw/axios-signature
 ## Request Signing Interceptor
 
 ```javascript
-import Signature from '@jundayw/axios-signature';
+import { SignatureInstance } from '@jundayw/axios-signature';
 
 axios.interceptors.request.use(
-    new Signature(
+    SignatureInstance(
         import.meta.env.VITE_APP_ID,
         import.meta.env.VITE_APP_KEY
     ),
@@ -51,6 +51,30 @@ axios.interceptors.request.use(
         return Promise.reject(error);
     }
 );
+```
+
+## Custom Request Signature Interceptor
+
+```javascript
+import axios, { type InternalAxiosRequestConfig } from 'axios'
+import Signature from '@jundayw/axios-signature';
+
+// Custom Common Request Parameters
+Signature.prototype.config = function (config: InternalAxiosRequestConfig): Record<string, Record<string, any>> {
+    return { params: {} };
+}
+const signatureInstance: Signature = new Signature(
+    import.meta.env.VITE_APP_ID,
+    import.meta.env.VITE_APP_KEY
+);
+
+axios.interceptors.request.use(
+    (config) => signatureInstance.signature(config) as InternalAxiosRequestConfig,
+    (error) => {
+        return Promise.reject(error);
+    }
+)
+;
 ```
 
 ## Request
@@ -92,6 +116,22 @@ Host: 127.0.0.1:8989
 Content-Length: 75
 
 {"type":"password","username":"admin","password":"12**56","remember":false}
+```
+
+## Response Verify Signature Interceptor
+
+```javascript
+import { VerifyInstance } from '@jundayw/axios-signature';
+
+axios.interceptors.response.use(
+    VerifyInstance(
+        import.meta.env.VITE_APP_ID,
+        import.meta.env.VITE_APP_KEY
+    ),
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 ```
 
 <!-- CONTRIBUTING -->

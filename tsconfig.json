@@ -4,6 +4,10 @@
         "target": "ES2020",
         // 输出的 JS 版本（Node.js 14+ 支持 ES2020）
         "module": "ESNext",
+        // 打包工具（tsup / vite / esbuild）推荐用 "Bundler"
+        "moduleResolution": "Bundler",
+        // 在浏览器里用
+        "lib": ["ES2020", "DOM"],
         // 模块系统：NodeNext 同时支持 ESM/CJS，也可选 "CommonJS" 或 "ESNext"
         "outDir": "./dist",
         // 编译输出目录
@@ -11,6 +15,13 @@
         // 源码根目录
         "removeComments": true,
         // 是否移除注释（建议保留声明注释）
+
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "isolatedModules": true,
+        "resolveJsonModule": true,
 
         /* 类型声明生成 */
         "declaration": true,
@@ -21,6 +32,8 @@
         // 生成 .js.map（调试用）
         "emitDeclarationOnly": false,
         // 只生成 .d.ts（设为 true 则不输出 .js）
+
+        "ignoreDeprecations": "6.0"
     },
     "include": [
         "src/**/*"
