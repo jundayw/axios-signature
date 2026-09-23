@@ -268,17 +268,17 @@ Content-Length: 75
 const signature = new Signature(
     appId,
     appKey,
-    signName = 'signature',
-    headerKey = 'x'
+    signatureKey = 'signature',
+    prefix = 'x'
 );
 ```
 
-| 参数          | 说明                                           |
-|-------------|----------------------------------------------|
-| `appId`     | 应用标识                                         |
-| `appKey`    | 用于签名和验证的应用密钥                                 |
-| `signName`  | 存储签名结果的字段名称，默认值：`signature`                  |
-| `headerKey` | 如果使用请求头发送公共参数，公共参数前缀，默认值：`x`，即 `X-Signature` |
+| 参数             | 说明                                           |
+|----------------|----------------------------------------------|
+| `appId`        | 应用标识                                         |
+| `appKey`       | 用于签名和验证的应用密钥                                 |
+| `signatureKey` | 存储签名结果的字段名称，默认值：`signature`                  |
+| `prefix`       | 如果使用请求头发送公共参数，公共参数前缀，默认值：`x`，即 `X-Signature` |
 
 可以根据 API 的实际要求进一步自定义参与签名的请求参数。
 

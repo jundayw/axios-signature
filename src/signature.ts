@@ -7,14 +7,14 @@ import VerifySignatureError from "./Errors/VerifySignatureError";
 class Signature {
     private readonly appId: string;
     private readonly appSecretKey: string;
-    private readonly signName: string;
-    private readonly headerKey: string;
+    private readonly signatureKey: string;
+    private readonly prefix: string;
 
-    constructor(appId: string, appSecretKey: string, signName: string = 'signature', headerKey: string = 'x') {
+    constructor(appId: string, appSecretKey: string, signatureKey: string = 'signature', prefix: string = 'x') {
         this.appId = appId
         this.appSecretKey = appSecretKey
-        this.signName = signName
-        this.headerKey = headerKey
+        this.signatureKey = signatureKey
+        this.prefix = prefix
     }
 
     public nonce(): string {
@@ -54,7 +54,7 @@ class Signature {
     }
 
     public toHeaderKeyUpperCase(value: string): string {
-        return (this.headerKey ? `${this.headerKey}_${value}` : value)
+        return (this.prefix ? `${this.prefix}_${value}` : value)
             .split('_')
             .filter(Boolean)
             .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -147,7 +147,7 @@ class Signature {
         const request: Record<string, any> = this.merge({ data, params }, message);
 
         Object.entries(message).forEach(([key, value]) => {
-            const signatureName: string = key.toLowerCase() === 'headers' ? this.toHeaderKeyUpperCase(this.signName) : this.signName;
+            const signatureName: string = key.toLowerCase() === 'headers' ? this.toHeaderKeyUpperCase(this.signatureKey) : this.signatureKey;
             const signatureValue: string = this.crypto(this.getConfigByKey(configuration, 'type'), this.message(request));
             Object.assign(value, {
                 [signatureName]: signatureValue
@@ -190,7 +190,7 @@ class Signature {
 
     public verify(response: AxiosResponse, type: string = 'SHA512'): boolean {
         const {
-            [this.signName]: signature,
+            [this.signatureKey]: signature,
             ...message
         } = response.data;
 
@@ -206,15 +206,15 @@ export interface SignatureFactory {
     (
         appId: string,
         appSecretKey: string,
-        signName?: string,
-        headerKey?: string
+        signatureKey?: string,
+        prefix?: string
     ): SignatureInterceptor;
 }
 
 export type SignatureInterceptor = (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
-export const SignatureInstance: SignatureFactory = function (appId: string, appSecretKey: string, signName: string = 'signature', headerKey: string = 'x'): SignatureInterceptor {
+export const SignatureInstance: SignatureFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', prefix: string = 'x'): SignatureInterceptor {
     return function (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig> {
-        return new Signature(appId, appSecretKey, signName, headerKey).signature(config);
+        return new Signature(appId, appSecretKey, signatureKey, prefix).signature(config);
     };
 };
 
@@ -222,15 +222,15 @@ export interface VerifyFactory {
     (
         appId: string,
         appSecretKey: string,
-        signName?: string,
+        signatureKey?: string,
         type?: string,
     ): VerifyInterceptor;
 }
 
 export type VerifyInterceptor = (response: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>;
-export const VerifyInstance: VerifyFactory = function (appId: string, appSecretKey: string, signName: string = 'signature', type: string = 'SHA512'): VerifyInterceptor {
+export const VerifyInstance: VerifyFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', type: string = 'SHA512'): VerifyInterceptor {
     return function (response: AxiosResponse): AxiosResponse | Promise<AxiosResponse> {
-        return new Signature(appId, appSecretKey, signName).verify(response, type) ? response : Promise.reject(
+        return new Signature(appId, appSecretKey, signatureKey).verify(response, type) ? response : Promise.reject(
             new VerifySignatureError('Response signature verification failed')
         );
     };

@@ -269,17 +269,17 @@ Create a `Signature` instance using your application ID and application key:
 const signature = new Signature(
     appId,
     appKey,
-    signName = 'signature',
-    headerKey = 'x'
+    signatureKey = 'signature',
+    prefix = 'x'
 );
 ```
 
-| Parameter   | Description                                                                                                                     |
-|-------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `appId`     | Application identifier                                                                                                          |
-| `appKey`    | Application key used for signing and verification                                                                               |
-| `signName`  | Field name used to store the signature. Defaults to `signature`                                                                 |
-| `headerKey` | Prefix for common parameters when they are sent as request headers. Defaults to `x`, resulting in headers such as `X-Signature` |
+| Parameter      | Description                                                                                                                     |
+|----------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `appId`        | Application identifier                                                                                                          |
+| `appKey`       | Application key used for signing and verification                                                                               |
+| `signatureKey` | Field name used to store the signature. Defaults to `signature`                                                                 |
+| `prefix`       | Prefix for common parameters when they are sent as request headers. Defaults to `x`, resulting in headers such as `X-Signature` |
 
 You can further customize the request parameters used for signing according to your API requirements.
 
