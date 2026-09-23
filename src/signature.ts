@@ -87,7 +87,6 @@ class Signature {
     }
 
     public crypto(type: string, message: string): string {
-        console.log({message})
         return match<any, string>(type?.toLowerCase())
             .with('sha1', () => HmacSHA1(message, this.appSecretKey).toString().toUpperCase())
             .with('sha256', () => HmacSHA256(message, this.appSecretKey).toString().toUpperCase())
@@ -183,7 +182,10 @@ class Signature {
             [this.signName]: signature,
             ...message
         } = response.data;
-        return signature === this.crypto(type, this.value(message));
+        if (signature) {
+            return signature.toUpperCase() === this.crypto(type, this.value(message)).toUpperCase();
+        }
+        return false;
     }
 }
 
