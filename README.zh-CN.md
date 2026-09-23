@@ -81,14 +81,13 @@ pnpm add @jundayw/axios-signature
 
 ```typescript
 import axios from 'axios';
-import {
-    SignatureInstance,
-    VerifyInstance,
-} from '@jundayw/axios-signature';
+import Signature from '@jundayw/axios-signature';
 
 const axiosInstance = axios.create({
     baseURL: 'http://httpbin.org',
 });
+
+const signature = new Signature('appId', 'appSecretKey');
 
 // 请求签名拦截器
 axiosInstance.interceptors.request.use(function (

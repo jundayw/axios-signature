@@ -81,14 +81,13 @@ The simplest way to use the package is to register the request signing and respo
 
 ```typescript
 import axios from 'axios';
-import {
-    SignatureInstance,
-    VerifyInstance,
-} from '@jundayw/axios-signature';
+import Signature from '@jundayw/axios-signature';
 
 const axiosInstance = axios.create({
     baseURL: 'http://httpbin.org',
 });
+
+const signature = new Signature('appId', 'appSecretKey');
 
 // Request Signature Interceptor
 axiosInstance.interceptors.request.use(function (
