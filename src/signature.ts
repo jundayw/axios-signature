@@ -82,7 +82,11 @@ class Signature {
     // 对象排序算法
     public sort<T extends Record<string, any>>(obj: T): T {
         return Object.fromEntries(
-            Object.entries(obj).sort((a: [string, any], b: [string, any]) => a[0].localeCompare(b[0]))
+            Object.entries(obj).sort((a: [string, any], b: [string, any]) => {
+                if (a[0] < b[0]) return -1;
+                if (a[0] > b[0]) return 1;
+                return 0;
+            })
         ) as T;
     }
 
@@ -96,18 +100,25 @@ class Signature {
 
     protected encode(value: any): string {
         return encodeURIComponent(String(value))
-            .replace('*', '%2A')
-            .replace('!', '%21')
-            .replace("'", '%27')
-            .replace('(', '%28')
-            .replace(')', '%29');
+            .replace(/\*/g, '%2A')
+            .replace(/!/g, '%21')
+            .replace(/'/g, '%27')
+            .replace(/\(/g, '%28')
+            .replace(/\)/g, '%29');
     }
 
     public value(value: any): string {
-        if (value instanceof Object && !Array.isArray(value)) {
-            value = Object.fromEntries(Object.entries(value).filter(([key, value]) => value !== undefined));
+        if (value instanceof Object) {
+            if (Array.isArray(value)) {
+                value = Object.fromEntries(Object.entries(value));
+            } else {
+                value = Object.fromEntries(Object.entries(value).filter(([key, value]) => value !== undefined));
+            }
         }
         return Object.entries(this.sort(value))
+            // // 是否启用需要和服务端保持一致 https://github.com/jundayw/laravel-passport
+            // .filter(([key, value]) => !(value === null || value === undefined || value === ''))
+            // .filter(([key, value]) => Array.isArray(value) ? value.length : true)
             .map(([key, value]) => {
                 if (value === null || value === undefined) {
                     value = '';
@@ -123,8 +134,8 @@ class Signature {
         return Object.values(this.sort(message))
             .filter((value: Record<string, any>) => value !== undefined)
             .filter((value: Record<string, any>) => value !== null)
-            .filter((value: Record<string, any>) => Object.entries(value).length)
             .map((value: Record<string, any>) => this.value(value))
+            .filter((value: string) => value.length)
             .join('&');
     }
 
@@ -182,9 +193,11 @@ class Signature {
             [this.signName]: signature,
             ...message
         } = response.data;
+
         if (signature) {
             return signature.toUpperCase() === this.crypto(type, this.value(message)).toUpperCase();
         }
+
         return false;
     }
 }
