@@ -23,7 +23,7 @@ class Signature {
         );
     }
 
-    public config(config: InternalAxiosRequestConfig): Record<string, Record<string, any>> {
+    public parameters(config: InternalAxiosRequestConfig): Record<string, Record<string, any>> {
         return {
             headers: {
                 app_id: (config.headers['app_id'] as string) || this.appId,
@@ -39,7 +39,7 @@ class Signature {
         };
     }
 
-    public getConfigByKey(configuration: Record<string, Record<string, any>>, key: string, defaultValue: any = null): any {
+    public getParameterByKey(configuration: Record<string, Record<string, any>>, key: string, defaultValue: any = null): any {
         if (Object.prototype.hasOwnProperty.call(configuration, key)) {
             return configuration[key];
         }
@@ -140,15 +140,15 @@ class Signature {
     }
 
     public assign(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
-        const configuration: Record<string, Record<string, any>> = this.config(config) || {};
-        const message: Record<string, Record<string, any>> = this.build(configuration);
+        const parameters: Record<string, Record<string, any>> = this.parameters(config) || {};
+        const message: Record<string, Record<string, any>> = this.build(parameters);
         const params: Record<string, any> = config.params || {};
         const data: Record<string, any> = config.data || {};
         const request: Record<string, any> = this.merge({ data, params }, message);
 
         Object.entries(message).forEach(([key, value]) => {
             const signatureName: string = key.toLowerCase() === 'headers' ? this.toHeaderKeyUpperCase(this.signatureKey) : this.signatureKey;
-            const signatureValue: string = this.crypto(this.getConfigByKey(configuration, 'type'), this.message(request));
+            const signatureValue: string = this.crypto(this.getParameterByKey(parameters, 'type'), this.message(request));
             Object.assign(value, {
                 [signatureName]: signatureValue
             })

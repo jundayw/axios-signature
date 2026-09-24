@@ -178,7 +178,7 @@ import axios, {
 
 import Signature from '@jundayw/axios-signature';
 
-Signature.prototype.config = function (
+Signature.prototype.parameters = function (
     config: InternalAxiosRequestConfig
 ): Record<string, Record<string, any>> {
     return {

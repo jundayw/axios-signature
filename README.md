@@ -179,7 +179,7 @@ import axios, {
 
 import Signature from '@jundayw/axios-signature';
 
-Signature.prototype.config = function (
+Signature.prototype.parameters = function (
     config: InternalAxiosRequestConfig
 ): Record<string, Record<string, any>> {
     return {
@@ -366,4 +366,3 @@ Distributed under the MIT License.
 See the [License File](LICENSE) for more information.
 
 <p align="right">[<a href="#readme-top">back to top</a>]</p>
-
