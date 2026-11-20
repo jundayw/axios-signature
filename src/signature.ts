@@ -62,6 +62,12 @@ class Signature {
             .join('-');
     }
 
+    public filter(config: Record<string, any>, root: boolean = true): Record<string, any> {
+        return Object.fromEntries(
+            Object.entries(config).filter(([key, value]) => root ? this.filter(value, false) : key != this.signatureKey)
+        )
+    }
+
     public build(config: Record<string, any>, hasHeader: boolean = false): Record<string, any> {
         return Object.fromEntries(Object.entries(config).map(([key, value]) => [
             hasHeader ? this.toHeaderKeyUpperCase(key) : key,
@@ -177,7 +183,7 @@ class Signature {
         // 获取接口 params 参数
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
-        let pathname: string = [base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
+        let pathname: string = ['/', base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
         // 参数合并
         const params: Record<string, any> = Object.assign({}, baseParams, defaultParams, urlParams);
 
@@ -202,14 +208,12 @@ class Signature {
     }
 }
 
-export interface SignatureFactory {
-    (
-        appId: string,
-        appSecretKey: string,
-        signatureKey?: string,
-        prefix?: string
-    ): SignatureInterceptor;
-}
+export type SignatureFactory = (
+    appId: string,
+    appSecretKey: string,
+    signatureKey?: string,
+    prefix?: string
+) => SignatureInterceptor;
 
 export type SignatureInterceptor = (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
 export const SignatureInstance: SignatureFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', prefix: string = 'x'): SignatureInterceptor {
@@ -218,14 +222,12 @@ export const SignatureInstance: SignatureFactory = function (appId: string, appS
     };
 };
 
-export interface VerifyFactory {
-    (
-        appId: string,
-        appSecretKey: string,
-        signatureKey?: string,
-        type?: string,
-    ): VerifyInterceptor;
-}
+export type VerifyFactory = (
+    appId: string,
+    appSecretKey: string,
+    signatureKey?: string,
+    type?: string,
+) => VerifyInterceptor;
 
 export type VerifyInterceptor = (response: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>;
 export const VerifyInstance: VerifyFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', type: string = 'SHA512'): VerifyInterceptor {
