@@ -1,8 +1,13 @@
-import { type AxiosResponse, InternalAxiosRequestConfig } from "axios";
+import type { AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import { match } from "ts-pattern";
 import { HmacSHA1, HmacSHA256, HmacSHA512, HmacMD5 } from 'crypto-js';
 import { URL, URLSearchParams } from './url'
-import VerifySignatureError from "./Errors/VerifySignatureError";
+
+declare module 'axios' {
+    interface InternalAxiosRequestConfig {
+        snapshot?: Record<'baseURL' | 'url' | 'params' | 'data', any>;
+    }
+}
 
 class Signature {
     private readonly appId: string;
@@ -62,9 +67,11 @@ class Signature {
             .join('-');
     }
 
-    public filter(config: Record<string, any>, root: boolean = true): Record<string, any> {
+    public filter(config: Record<string, any>, keys: string[] = [], root: boolean = true): Record<string, any> {
         return Object.fromEntries(
-            Object.entries(config).filter(([key, value]) => root ? this.filter(value, false) : key != this.signatureKey)
+            Object.entries(config)
+                .filter(([key]) => !keys.includes(key))
+                .map(([key, value]) => [key, root ? this.filter(value, keys, false) : value])
         )
     }
 
@@ -96,15 +103,15 @@ class Signature {
         ) as T;
     }
 
-    public crypto(type: string, message: string): string {
-        return match<any, string>(type?.toLowerCase())
+    public crypto(algorithm: string, message: string): string {
+        return match<any, string>(algorithm?.toLowerCase())
             .with('sha1', () => HmacSHA1(message, this.appSecretKey).toString().toUpperCase())
             .with('sha256', () => HmacSHA256(message, this.appSecretKey).toString().toUpperCase())
             .with('sha512', () => HmacSHA512(message, this.appSecretKey).toString().toUpperCase())
             .otherwise(() => HmacMD5(message, this.appSecretKey).toString().toUpperCase());
     }
 
-    protected encode(value: any): string {
+    public encode(value: any): string {
         return encodeURIComponent(String(value))
             .replace(/\*/g, '%2A')
             .replace(/!/g, '%21')
@@ -118,7 +125,7 @@ class Signature {
             if (Array.isArray(value)) {
                 value = Object.fromEntries(Object.entries(value));
             } else {
-                value = Object.fromEntries(Object.entries(value).filter(([key, value]) => value !== undefined));
+                value = Object.fromEntries(Object.entries(value).filter(([_, value]) => value !== undefined));
             }
         }
         return Object.entries(this.sort(value))
@@ -147,7 +154,7 @@ class Signature {
 
     public assign(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
         const parameters: Record<string, Record<string, any>> = this.parameters(config) || {};
-        const message: Record<string, Record<string, any>> = this.build(parameters);
+        const message: Record<string, Record<string, any>> = this.build(this.filter(parameters, [this.signatureKey]));
         const params: Record<string, any> = config.params || {};
         const data: Record<string, any> = config.data || {};
         const request: Record<string, any> = this.merge({ data, params }, message);
@@ -170,10 +177,20 @@ class Signature {
     }
 
     public signature(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+        // 请求重放
+        if (!Object.prototype.hasOwnProperty.call(config, 'snapshot')) {
+            config.snapshot = JSON.parse(JSON.stringify({
+                baseURL: config.baseURL,
+                url: config.url,
+                params: config.params || {},
+                data: config.data || {},
+            }));
+        }
+        config = Object.assign(config, config.snapshot)
         // 兼容网关地址传递 Query 参数：http://localhost?app_id=x
-        const base: URL = new URL(config.baseURL as string);
+        const base: URL = new URL(config.baseURL ?? '' as string);
         // 兼容接口地址传递 Query 参数：/account/login?type=password
-        const url: URL = new URL(config.url as string, base.origin as string);
+        const url: URL = new URL(config.url ?? '' as string);
         // 兼容接口传递 params 参数：{ params: { action: 'ping', type: 'sha512', version: '2.0.0' } }
         const requestParams: URLSearchParams = new URLSearchParams(config.params || {});
         // 获取网关 params 参数
@@ -183,59 +200,32 @@ class Signature {
         // 获取接口 params 参数
         const defaultParams: Record<string, any> = Object.fromEntries(requestParams);
         // 获取公共参数
-        let pathname: string = ['/', base.pathname, url.pathname].filter((value) => value.length).map((value) => value.replace(/^\/+|\/+$/g, '')).join('/');
+        const pathname: string = ['/', base.pathname, url.pathname]
+            .map((value) => value.replace(/^\/+|\/+$/g, ''))
+            .filter((value, index) => index ? value.length : true)
+            .join('/');
         // 参数合并
         const params: Record<string, any> = Object.assign({}, baseParams, defaultParams, urlParams);
 
-        config.baseURL = url.origin;
-        config.url = pathname;
+        config.baseURL = base.origin || '/';
+        config.url = config.url?.includes('://') ? config.url : pathname;
         config.params = new URLSearchParams(params);
 
         return this.assign(config);
     }
 
-    public verify(response: AxiosResponse, type: string = 'SHA512'): boolean {
+    public verify(response: AxiosResponse, algorithm: string = 'SHA512'): boolean {
         const {
             [this.signatureKey]: signature,
             ...message
         } = response.data;
 
         if (signature) {
-            return signature.toUpperCase() === this.crypto(type, this.value(message)).toUpperCase();
+            return signature.toUpperCase() === this.crypto(algorithm, this.value(message)).toUpperCase();
         }
 
         return false;
     }
 }
-
-export type SignatureFactory = (
-    appId: string,
-    appSecretKey: string,
-    signatureKey?: string,
-    prefix?: string
-) => SignatureInterceptor;
-
-export type SignatureInterceptor = (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
-export const SignatureInstance: SignatureFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', prefix: string = 'x'): SignatureInterceptor {
-    return function (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig> {
-        return new Signature(appId, appSecretKey, signatureKey, prefix).signature(config);
-    };
-};
-
-export type VerifyFactory = (
-    appId: string,
-    appSecretKey: string,
-    signatureKey?: string,
-    type?: string,
-) => VerifyInterceptor;
-
-export type VerifyInterceptor = (response: AxiosResponse) => AxiosResponse | Promise<AxiosResponse>;
-export const VerifyInstance: VerifyFactory = function (appId: string, appSecretKey: string, signatureKey: string = 'signature', type: string = 'SHA512'): VerifyInterceptor {
-    return function (response: AxiosResponse): AxiosResponse | Promise<AxiosResponse> {
-        return new Signature(appId, appSecretKey, signatureKey).verify(response, type) ? response : Promise.reject(
-            new VerifySignatureError('Response signature verification failed')
-        );
-    };
-};
 
 export default Signature;

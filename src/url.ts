@@ -10,7 +10,7 @@ class URL {
     public hash: string;
     public searchParams: URLSearchParams;
 
-    constructor(href: string, base?: string){
+    constructor(href: string){
         this.href = '';
         this.protocol = '';
         this.origin = '';
@@ -22,10 +22,10 @@ class URL {
         this.hash = '';
         this.searchParams = new URLSearchParams();
 
-        if (base) {
-            this.parse(base, base.includes('://'));
-            href = this.origin + (href.startsWith('/') ? href : `/${href}`);
-        }
+        // if (base) {
+        //     this.parse(base, base.includes('://'));
+        //     href = this.origin + (href.startsWith('/') ? href : `/${href}`);
+        // }
         this.parse(href, href.includes('://'));
     }
 
